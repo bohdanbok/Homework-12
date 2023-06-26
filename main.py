@@ -1,10 +1,10 @@
 import sys 
 from collections import UserDict
-from datetime import datetime, timedelta
+from datetime import datetime
 import re
+import pickle
 
 STOP_WORDS = ['exit', 'good bye', 'close']
-
 
 class Field:
     def __init__(self, value=None):
@@ -105,7 +105,30 @@ class AddressBook(UserDict):
             start = page * page_size
             end = start + page_size
             yield records[start:end]
-        
+    
+    def save_data(self, file_path):
+        with open(file_path, 'wb') as file:
+            pickle.dump(self.data, file)
+
+    def load_data(self, file_path):
+        with open(file_path, 'rb') as file:
+            self.data = pickle.load(file)
+
+    def search_contacts(self, search_string):
+        search_string = search_string.lower()
+        matching_contacts = []
+
+        for record in self.data.values():
+            if search_string in record.name.value.lower():
+                matching_contacts.append(record)
+            else:
+                for phone in record.phones:
+                    if search_string in phone.value.lower():
+                        matching_contacts.append(record)
+                        break
+
+        return matching_contacts
+            
 contacts = AddressBook()
 
 def input_error(func):
@@ -166,7 +189,22 @@ def days_to_birthday(user_input):
     parts = user_input.split(" ")
     result =str(contacts[parts[1]].days_to_birthday())+ ' days till birthday'
     return result
-    
+
+def search_contacts(user_input):
+    parts = user_input.split(" ")
+    search_string = ' '.join(parts[1:])
+    matching_contacts = contacts.search_contacts(search_string)
+    result = ''
+
+    if matching_contacts:
+        result += 'Matching contacts:\n'
+        for contact in matching_contacts:
+            result += str(contact) + '\n'
+    else:
+        result = 'No matching contacts found'
+
+    return result
+        
 def process_input(user_input):
     listed_user_input = user_input.split(' ')
     command = listed_user_input[0].lower()
@@ -186,6 +224,8 @@ def process_input(user_input):
         return show_all()
     elif command == 'when':
         return days_to_birthday(user_input)
+    elif command == 'search':
+        return search_contacts(user_input)
         
 def run_bot():
     while True:
@@ -193,8 +233,21 @@ def run_bot():
         if user_input not in STOP_WORDS:
             print(process_input(user_input))
         elif user_input in STOP_WORDS:
+            filename = input("Enter the filename to save the address book: ")
+            contacts.save_data(filename)
             print('Good bye!')
             return sys.exit()
+
+def start():
+    filename = input("Enter the filename to load the address book:")
+    if len(filename) > 0:
+        contacts.load_data(filename)
+        print("Address book loaded successfully!")
+        run_bot()
+    else:
+        run_bot()    
+        
         
 if __name__ == '__main__':        
-    run_bot()
+    start()
+    
